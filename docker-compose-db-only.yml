@@ -1,0 +1,22 @@
+version: "3.4"
+services:
+  db:
+    image: "mcr.microsoft.com/mssql/server"
+    environment:
+      SA_PASSWORD: "nick123reallyStrong"
+      ACCEPT_EULA: "Y"
+    volumes:
+      - schedule-system:/var/opt/mssql
+      - schedule-user:/var/opt/sqlserver
+    ports:
+      - 1433:1433
+    networks:
+      - amaze.auth-net
+volumes:
+  schedule-system:
+    name: schedule-system
+  schedule-user:
+    name: schedule-user
+networks:
+  amaze.auth-net:
+    driver: bridge
