@@ -3,9 +3,10 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using IdentityServer4.EntityFramework.DbContexts;
-using IdentityServer4.EntityFramework.Mappers;
-
+using IdentityServer.Data;
+using IdentityServer.Models;
 namespace IdentityServer
 {
     public class Startup
@@ -23,9 +24,17 @@ namespace IdentityServer
             var migrationsAssembly = typeof(Startup).GetTypeInfo().Assembly.GetName().Name;
             var connectionString = Configuration.GetConnectionString("authConnectionString");
 
+            services.AddDbContext<AspNetIdentityDbContext>(options => {
+                options.EnableSensitiveDataLogging();
+                options.UseSqlServer(connectionString);
+            });
+                    
+            services.AddIdentity<AspNetUser, IdentityRole>()
+                .AddEntityFrameworkStores<AspNetIdentityDbContext>()
+                .AddDefaultTokenProviders();
+
             services.AddIdentityServer()
                 .AddDeveloperSigningCredential(true)
-                .AddTestUsers(TestUsers.Users)
                 .AddConfigurationStore(options =>
                 {
                     options.ConfigureDbContext = b => b.UseSqlServer(connectionString,
@@ -35,13 +44,14 @@ namespace IdentityServer
                 {
                     options.ConfigureDbContext = b => b.UseSqlServer(connectionString,
                         sql => sql.MigrationsAssembly(migrationsAssembly));
-                });
+                })
+                .AddAspNetIdentity<AspNetUser>();
         }
 
         public void Configure(IApplicationBuilder app)
         {
             app.UseIdentityServer();
-            //InitializeDatabase(app);
+            InitializeDatabase(app);
         }
 
         private void InitializeDatabase(IApplicationBuilder app)
@@ -49,10 +59,11 @@ namespace IdentityServer
             using (var serviceScope = app.ApplicationServices.GetService<IServiceScopeFactory>().CreateScope())
             {
                 serviceScope.ServiceProvider.GetRequiredService<PersistedGrantDbContext>().Database.Migrate();
-
-                var context = serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>();
-                context.Database.Migrate();
+                serviceScope.ServiceProvider.GetRequiredService<ConfigurationDbContext>().Database.Migrate();
+                serviceScope.ServiceProvider.GetRequiredService<AspNetIdentityDbContext>().Database.Migrate();
             }
         }
+
+        
     }
 }
